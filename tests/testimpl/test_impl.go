@@ -2,6 +2,7 @@ package testimpl
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -91,36 +92,59 @@ func TestComposableComplete(t *testing.T, ctx types.TestContext) {
 		region := terraform.Output(t, opts, "region")
 		metricName := terraform.Output(t, opts, "metric_name")
 		metricNamespace := terraform.Output(t, opts, "metric_namespace")
+		pattern := terraform.Output(t, opts, "pattern")
 
 		logsClient := getCloudWatchLogsClient(t, region)
 		cwClient := getCloudWatchClient(t, region)
-		streamName := "terratest-stream"
+		streamName := fmt.Sprintf("terratest-%d", time.Now().UnixNano())
+		logMessage := "ERROR example event for metric filter test"
 
 		_, err := logsClient.CreateLogStream(context.TODO(), &cloudwatchlogs.CreateLogStreamInput{
 			LogGroupName:  aws.String(logGroupName),
 			LogStreamName: aws.String(streamName),
 		})
-		if err != nil && !strings.Contains(err.Error(), "ResourceAlreadyExistsException") {
-			require.NoError(t, err, "CreateLogStream should succeed")
-		}
+		require.NoError(t, err, "CreateLogStream should succeed")
 
+		eventTime := time.Now()
 		_, err = logsClient.PutLogEvents(context.TODO(), &cloudwatchlogs.PutLogEventsInput{
 			LogGroupName:  aws.String(logGroupName),
 			LogStreamName: aws.String(streamName),
 			LogEvents: []cwltypes.InputLogEvent{
 				{
-					Message:   aws.String("ERROR example event for metric filter test"),
-					Timestamp: aws.Int64(time.Now().UnixMilli()),
+					Message:   aws.String(logMessage),
+					Timestamp: aws.Int64(eventTime.UnixMilli()),
 				},
 			},
 		})
 		require.NoError(t, err, "PutLogEvents should succeed")
 
-		endTime := time.Now()
-		startTime := endTime.Add(-10 * time.Minute)
-		var datapoints []cwtypes.Datapoint
-		for i := 0; i < 18; i++ {
-			stats, err := cwClient.GetMetricStatistics(context.TODO(), &cloudwatch.GetMetricStatisticsInput{
+		filterStart := eventTime.Add(-2 * time.Minute).UnixMilli()
+		var foundLog bool
+		for i := 0; i < 24; i++ {
+			output, filterErr := logsClient.FilterLogEvents(context.TODO(), &cloudwatchlogs.FilterLogEventsInput{
+				LogGroupName:   aws.String(logGroupName),
+				LogStreamNames: []string{streamName},
+				FilterPattern:  aws.String(pattern),
+				StartTime:      aws.Int64(filterStart),
+			})
+			require.NoError(t, filterErr, "FilterLogEvents should succeed")
+			for _, event := range output.Events {
+				if strings.Contains(aws.ToString(event.Message), logMessage) {
+					foundLog = true
+					break
+				}
+			}
+			if foundLog {
+				break
+			}
+			time.Sleep(5 * time.Second)
+		}
+		require.True(t, foundLog, "matching log event should be searchable after PutLogEvents")
+
+		assert.Eventually(t, func() bool {
+			endTime := time.Now()
+			startTime := endTime.Add(-30 * time.Minute)
+			stats, statsErr := cwClient.GetMetricStatistics(context.TODO(), &cloudwatch.GetMetricStatisticsInput{
 				Namespace:  aws.String(metricNamespace),
 				MetricName: aws.String(metricName),
 				StartTime:  aws.Time(startTime),
@@ -128,15 +152,16 @@ func TestComposableComplete(t *testing.T, ctx types.TestContext) {
 				Period:     aws.Int32(60),
 				Statistics: []cwtypes.Statistic{cwtypes.StatisticSum},
 			})
-			require.NoError(t, err, "GetMetricStatistics should succeed")
-			if len(stats.Datapoints) > 0 {
-				datapoints = stats.Datapoints
-				break
+			if statsErr != nil {
+				return false
 			}
-			time.Sleep(10 * time.Second)
-		}
-		require.NotEmpty(t, datapoints, "metric datapoints should be published after matching log event")
-		assert.GreaterOrEqual(t, aws.ToFloat64(datapoints[0].Sum), 1.0, "metric sum should be at least 1")
+			for _, dp := range stats.Datapoints {
+				if aws.ToFloat64(dp.Sum) >= 1.0 {
+					return true
+				}
+			}
+			return false
+		}, 12*time.Minute, 20*time.Second, "metric sum should be published after matching log event")
 	})
 }
 
