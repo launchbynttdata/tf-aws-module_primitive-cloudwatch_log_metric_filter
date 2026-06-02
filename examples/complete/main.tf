@@ -27,7 +27,7 @@ module "resource_names" {
   cloud_resource_type     = each.value.name
   maximum_length          = each.value.max_length
 
-  region = join("", split("-", data.aws_region.current.id))
+  region = join("", split("-", data.aws_region.current.region))
 }
 
 data "aws_iam_policy_document" "logs_kms" {
@@ -47,7 +47,7 @@ data "aws_iam_policy_document" "logs_kms" {
     effect = "Allow"
     principals {
       type        = "Service"
-      identifiers = ["logs.${data.aws_region.current.id}.amazonaws.com"]
+      identifiers = ["logs.${data.aws_region.current.region}.amazonaws.com"]
     }
     actions = [
       "kms:Encrypt*",
@@ -61,7 +61,7 @@ data "aws_iam_policy_document" "logs_kms" {
     condition {
       test     = "ArnLike"
       variable = "kms:EncryptionContext:aws:logs:arn"
-      values   = ["arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:*"]
+      values   = ["arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:*"]
     }
   }
 }
