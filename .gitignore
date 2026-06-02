@@ -60,3 +60,4 @@ azure_env.sh
 
 # VS Code
 .vscode/
+local_code_review.md

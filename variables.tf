@@ -37,6 +37,11 @@ variable "pattern" {
 variable "log_group_name" {
   description = "Name of the CloudWatch log group to associate with the metric filter."
   type        = string
+
+  validation {
+    condition     = length(var.log_group_name) >= 1
+    error_message = "log_group_name must not be empty."
+  }
 }
 
 variable "metric_transformation" {

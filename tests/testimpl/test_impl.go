@@ -31,6 +31,74 @@ func getCloudWatchClient(t *testing.T, region string) *cloudwatch.Client {
 	return cloudwatch.NewFromConfig(cfg)
 }
 
+func describeLogGroupWithRetry(t *testing.T, client *cloudwatchlogs.Client, logGroupName string) *cwltypes.LogGroup {
+	t.Helper()
+	var lastErr error
+	for attempt := 1; attempt <= 12; attempt++ {
+		output, err := client.DescribeLogGroups(context.TODO(), &cloudwatchlogs.DescribeLogGroupsInput{
+			LogGroupNamePrefix: aws.String(logGroupName),
+		})
+		if err != nil {
+			lastErr = err
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		for i := range output.LogGroups {
+			if aws.ToString(output.LogGroups[i].LogGroupName) == logGroupName {
+				return &output.LogGroups[i]
+			}
+		}
+		lastErr = fmt.Errorf("log group %s not found yet", logGroupName)
+		time.Sleep(5 * time.Second)
+	}
+	require.Failf(t, "unable to describe log group", "%s after retries: %v", logGroupName, lastErr)
+	return nil
+}
+
+func assertLogGroupKMSEncryption(t *testing.T, client *cloudwatchlogs.Client, logGroupName, expectedKMSArn string) {
+	t.Helper()
+	logGroup := describeLogGroupWithRetry(t, client, logGroupName)
+	require.NotNil(t, logGroup.KmsKeyId, "log group should have a KMS key attached")
+	assert.Equal(t, expectedKMSArn, aws.ToString(logGroup.KmsKeyId), "KMS key ARN should match")
+}
+
+func waitForMetricFilter(t *testing.T, client *cloudwatchlogs.Client, logGroupName, filterName string) (*cwltypes.MetricFilter, error) {
+	t.Helper()
+	var lastErr error
+	for i := 0; i < 12; i++ {
+		output, err := client.DescribeMetricFilters(context.TODO(), &cloudwatchlogs.DescribeMetricFiltersInput{
+			LogGroupName:     aws.String(logGroupName),
+			FilterNamePrefix: aws.String(filterName),
+		})
+		lastErr = err
+		if err == nil {
+			for i := range output.MetricFilters {
+				if aws.ToString(output.MetricFilters[i].FilterName) == filterName {
+					return &output.MetricFilters[i], nil
+				}
+			}
+		}
+		time.Sleep(5 * time.Second)
+	}
+	return nil, lastErr
+}
+
+func assertMetricFilterConfig(t *testing.T, matched *cwltypes.MetricFilter, opts *terraform.Options, filterName string) {
+	t.Helper()
+	expectedPattern := terraform.Output(t, opts, "pattern")
+	expectedMetricName := terraform.Output(t, opts, "metric_name")
+	expectedNamespace := terraform.Output(t, opts, "metric_namespace")
+	expectedMetricValue := terraform.Output(t, opts, "metric_value")
+
+	require.NotNil(t, matched, "metric filter should be found by name")
+	require.Equal(t, filterName, aws.ToString(matched.FilterName), "filter name should match")
+	assert.Equal(t, expectedPattern, aws.ToString(matched.FilterPattern), "filter pattern should match")
+	require.NotEmpty(t, matched.MetricTransformations, "metric transformations should be present")
+	assert.Equal(t, expectedMetricName, aws.ToString(matched.MetricTransformations[0].MetricName), "metric name should match")
+	assert.Equal(t, expectedNamespace, aws.ToString(matched.MetricTransformations[0].MetricNamespace), "metric namespace should match")
+	assert.Equal(t, expectedMetricValue, aws.ToString(matched.MetricTransformations[0].MetricValue), "metric value should match")
+}
+
 func TestComposableComplete(t *testing.T, ctx types.TestContext) {
 	t.Run("VerifyTerraformOutputs", func(t *testing.T) {
 		opts := ctx.TerratestTerraformOptions()
@@ -39,11 +107,23 @@ func TestComposableComplete(t *testing.T, ctx types.TestContext) {
 		pattern := terraform.Output(t, opts, "pattern")
 		metricName := terraform.Output(t, opts, "metric_name")
 		metricNamespace := terraform.Output(t, opts, "metric_namespace")
+		metricValue := terraform.Output(t, opts, "metric_value")
 
 		assert.Equal(t, name, id, "id should equal name for metric filter")
-		assert.Equal(t, "ERROR", pattern, "pattern should match example")
-		assert.Equal(t, "ExampleErrorCount", metricName, "metric name should match example")
-		assert.Equal(t, "Launch/CloudWatchMetricFilterTest", metricNamespace, "metric namespace should match example")
+		assert.NotEmpty(t, pattern, "pattern should be set")
+		assert.NotEmpty(t, metricName, "metric name should be set")
+		assert.NotEmpty(t, metricNamespace, "metric namespace should be set")
+		assert.NotEmpty(t, metricValue, "metric value should be set")
+	})
+
+	t.Run("VerifyLogGroupKMSEncryption", func(t *testing.T) {
+		opts := ctx.TerratestTerraformOptions()
+		logGroupName := terraform.Output(t, opts, "log_group_name")
+		kmsKeyARN := terraform.Output(t, opts, "kms_key_arn")
+		region := terraform.Output(t, opts, "region")
+
+		client := getCloudWatchLogsClient(t, region)
+		assertLogGroupKMSEncryption(t, client, logGroupName, kmsKeyARN)
 	})
 
 	t.Run("VerifyMetricFilterViaAPI", func(t *testing.T) {
@@ -51,39 +131,11 @@ func TestComposableComplete(t *testing.T, ctx types.TestContext) {
 		filterName := terraform.Output(t, opts, "name")
 		logGroupName := terraform.Output(t, opts, "log_group_name")
 		region := terraform.Output(t, opts, "region")
-		expectedMetricName := terraform.Output(t, opts, "metric_name")
-		expectedNamespace := terraform.Output(t, opts, "metric_namespace")
 
 		client := getCloudWatchLogsClient(t, region)
-
-		var filters []cwltypes.MetricFilter
-		var err error
-		for i := 0; i < 12; i++ {
-			output, describeErr := client.DescribeMetricFilters(context.TODO(), &cloudwatchlogs.DescribeMetricFiltersInput{
-				LogGroupName: aws.String(logGroupName),
-				FilterNamePrefix: aws.String(filterName),
-			})
-			err = describeErr
-			if err == nil && len(output.MetricFilters) > 0 {
-				filters = output.MetricFilters
-				break
-			}
-			time.Sleep(5 * time.Second)
-		}
+		matched, err := waitForMetricFilter(t, client, logGroupName, filterName)
 		require.NoError(t, err, "DescribeMetricFilters should succeed")
-		require.NotEmpty(t, filters, "metric filter should exist")
-
-		var matched *cwltypes.MetricFilter
-		for i := range filters {
-			if aws.ToString(filters[i].FilterName) == filterName {
-				matched = &filters[i]
-				break
-			}
-		}
-		require.NotNil(t, matched, "metric filter should be found by name")
-		require.NotEmpty(t, matched.MetricTransformations, "metric transformations should be present")
-		assert.Equal(t, expectedMetricName, aws.ToString(matched.MetricTransformations[0].MetricName), "metric name should match")
-		assert.Equal(t, expectedNamespace, aws.ToString(matched.MetricTransformations[0].MetricNamespace), "metric namespace should match")
+		assertMetricFilterConfig(t, matched, opts, filterName)
 	})
 
 	t.Run("PutLogEventsAndVerifyMetric", func(t *testing.T) {
@@ -141,6 +193,7 @@ func TestComposableComplete(t *testing.T, ctx types.TestContext) {
 		}
 		require.True(t, foundLog, "matching log event should be searchable after PutLogEvents")
 
+		// CloudWatch metric publication can lag several minutes after matching log events.
 		assert.Eventually(t, func() bool {
 			endTime := time.Now()
 			startTime := endTime.Add(-30 * time.Minute)
@@ -174,27 +227,25 @@ func TestComposableCompleteReadOnly(t *testing.T, ctx types.TestContext) {
 		assert.Equal(t, name, id, "id should equal name for metric filter")
 	})
 
-	t.Run("VerifyMetricFilterExistsViaAPI", func(t *testing.T) {
+	t.Run("VerifyLogGroupKMSEncryption", func(t *testing.T) {
+		opts := ctx.TerratestTerraformOptions()
+		logGroupName := terraform.Output(t, opts, "log_group_name")
+		kmsKeyARN := terraform.Output(t, opts, "kms_key_arn")
+		region := terraform.Output(t, opts, "region")
+
+		client := getCloudWatchLogsClient(t, region)
+		assertLogGroupKMSEncryption(t, client, logGroupName, kmsKeyARN)
+	})
+
+	t.Run("VerifyMetricFilterViaAPI", func(t *testing.T) {
 		opts := ctx.TerratestTerraformOptions()
 		filterName := terraform.Output(t, opts, "name")
 		logGroupName := terraform.Output(t, opts, "log_group_name")
 		region := terraform.Output(t, opts, "region")
 
 		client := getCloudWatchLogsClient(t, region)
-
-		output, err := client.DescribeMetricFilters(context.TODO(), &cloudwatchlogs.DescribeMetricFiltersInput{
-			LogGroupName:     aws.String(logGroupName),
-			FilterNamePrefix: aws.String(filterName),
-		})
+		matched, err := waitForMetricFilter(t, client, logGroupName, filterName)
 		require.NoError(t, err, "DescribeMetricFilters should succeed")
-
-		found := false
-		for _, filter := range output.MetricFilters {
-			if aws.ToString(filter.FilterName) == filterName {
-				found = true
-				break
-			}
-		}
-		assert.True(t, found, "metric filter should exist")
+		assertMetricFilterConfig(t, matched, opts, filterName)
 	})
 }

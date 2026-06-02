@@ -25,41 +25,68 @@ module "resource_names" {
   region = join("", split("-", data.aws_region.current.region))
 }
 
-resource "aws_kms_key" "log_group" {
-  description             = "KMS key for CloudWatch log group metric filter example"
-  enable_key_rotation     = true
-  deletion_window_in_days = 7
-  multi_region            = true
+data "aws_iam_policy_document" "logs_kms" {
+  statement {
+    sid    = "EnableIAMUserPermissions"
+    effect = "Allow"
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+    actions   = ["kms:*"]
+    resources = ["*"]
+  }
 
-  tags = {
-    Name        = "cloudwatch-log-metric-filter-example-kms"
-    Environment = "terratest"
+  statement {
+    sid    = "AllowCloudWatchLogs"
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["logs.${data.aws_region.current.region}.amazonaws.com"]
+    }
+    actions = [
+      "kms:Encrypt*",
+      "kms:Decrypt*",
+      "kms:ReEncrypt*",
+      "kms:GenerateDataKey*",
+      "kms:Describe*",
+      "kms:CreateGrant"
+    ]
+    resources = ["*"]
+    condition {
+      test     = "ArnLike"
+      variable = "kms:EncryptionContext:aws:logs:arn"
+      values   = ["arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:*"]
+    }
   }
 }
 
-resource "aws_kms_key_policy" "log_group" {
-  key_id = aws_kms_key.log_group.id
-  policy = data.aws_iam_policy_document.cloudwatch_logs_kms_policy.json
+resource "aws_kms_key" "logs" {
+  description             = "KMS key for CloudWatch Logs encryption"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+  policy                  = data.aws_iam_policy_document.logs_kms.json
+
+  tags = merge(var.tags, { Name = module.resource_names["kms_key"].standard })
 }
 
-resource "aws_cloudwatch_log_group" "log_group" {
-  name              = module.resource_names["log_group"].standard
-  kms_key_id        = aws_kms_key.log_group.arn
-  retention_in_days = var.retention_days
+resource "aws_cloudwatch_log_group" "example" {
+  name              = "/aws/example/${module.resource_names["log_group"].standard}"
+  retention_in_days = 1
+  kms_key_id        = aws_kms_key.logs.arn
 
-  depends_on = [aws_kms_key_policy.log_group]
+  tags = var.tags
 }
 
 module "metric_filter" {
   source = "../.."
 
-  name                      = module.resource_names["metric_filter"].standard
-  pattern                   = var.pattern
-  log_group_name            = aws_cloudwatch_log_group.log_group.name
-  metric_transformation     = var.metric_transformation
-  apply_on_transformed_logs = var.apply_on_transformed_logs
+  name                  = module.resource_names["metric_filter"].standard
+  pattern               = var.pattern
+  log_group_name        = aws_cloudwatch_log_group.example.name
+  metric_transformation = var.metric_transformation
 
-  depends_on = [aws_cloudwatch_log_group.log_group]
+  depends_on = [aws_cloudwatch_log_group.example]
 }
 ```
 
