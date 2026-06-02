@@ -21,6 +21,7 @@ import (
 )
 
 const (
+	// Terratest only exercises this example folder; other examples need their own test package or constant.
 	testConfigsExamplesFolderDefault = "../../examples/complete"
 	infraTFVarFileNameDefault        = "test.tfvars"
 )
