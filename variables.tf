@@ -10,25 +10,50 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-variable "length" {
-  description = "Length of the random string to generate."
-  type        = number
-  default     = 24
+# -----------------------------------------------------------------------------
+# Required
+# -----------------------------------------------------------------------------
+
+variable "name" {
+  description = "Name of the CloudWatch log metric filter. Must be unique within the log group."
+  type        = string
 
   validation {
-    condition     = var.length > 0 && var.length < 100
-    error_message = "Length must be a positive integer less than 100."
+    condition     = length(var.name) >= 1 && length(var.name) <= 512
+    error_message = "Metric filter name must be between 1 and 512 characters."
   }
 }
 
-variable "number" {
-  description = "Whether the random string should include numbers. Defaults to true."
-  type        = bool
-  default     = true
+variable "pattern" {
+  description = "Filter pattern for extracting metric data from log events. See CloudWatch Logs filter and pattern syntax."
+  type        = string
+
+  validation {
+    condition     = length(var.pattern) >= 1
+    error_message = "Pattern must not be empty."
+  }
 }
 
-variable "special" {
-  description = "Whether the random string should include special characters. Defaults to false."
-  type        = bool
-  default     = false
+variable "log_group_name" {
+  description = "Name of the CloudWatch log group to associate with the metric filter."
+  type        = string
+}
+
+variable "metric_transformation" {
+  description = <<-EOT
+    name = CloudWatch metric name created from the filter
+    namespace = CloudWatch metric namespace
+    value = Value to emit (default "1")
+    default_value = Value when no match (optional)
+    unit = Standard unit for the metric (optional)
+    dimensions = Map of dimension names to log field names (optional)
+  EOT
+  type = object({
+    name          = string
+    namespace     = string
+    value         = optional(string, "1")
+    default_value = optional(string)
+    unit          = optional(string)
+    dimensions    = optional(map(string))
+  })
 }

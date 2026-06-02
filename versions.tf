@@ -11,12 +11,12 @@
 // limitations under the License.
 
 terraform {
-  required_version = "~> 1.0"
+  required_version = "~> 1.10"
 
   required_providers {
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.6"
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 5.100, < 7.0"
     }
   }
 }
