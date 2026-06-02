@@ -56,4 +56,12 @@ variable "metric_transformation" {
     unit          = optional(string)
     dimensions    = optional(map(string))
   })
+
+  validation {
+    condition = (
+      var.metric_transformation.default_value == null ||
+      var.metric_transformation.dimensions == null
+    )
+    error_message = "metric_transformation cannot set both default_value and dimensions."
+  }
 }
