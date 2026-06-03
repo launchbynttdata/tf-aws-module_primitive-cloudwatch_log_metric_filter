@@ -10,13 +10,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-variable "length" {
-  description = "Length of the random string to generate."
-  type        = number
-  default     = 24
+terraform {
+  required_version = "~> 1.10"
 
-  validation {
-    condition     = var.length > 0 && var.length < 100
-    error_message = "Length must be a positive integer less than 100."
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 5.100, < 7.0"
+    }
   }
 }

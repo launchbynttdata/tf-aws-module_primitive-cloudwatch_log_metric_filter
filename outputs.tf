@@ -10,7 +10,37 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-output "string" {
-  description = "The random string generated from the configured inputs."
-  value       = random_string.string.result
+output "id" {
+  description = "The ID of the metric filter (same as the name)."
+  value       = aws_cloudwatch_log_metric_filter.metric_filter.id
+}
+
+output "name" {
+  description = "The name of the metric filter."
+  value       = aws_cloudwatch_log_metric_filter.metric_filter.name
+}
+
+output "log_group_name" {
+  description = "The name of the CloudWatch log group."
+  value       = aws_cloudwatch_log_metric_filter.metric_filter.log_group_name
+}
+
+output "pattern" {
+  description = "The filter pattern."
+  value       = aws_cloudwatch_log_metric_filter.metric_filter.pattern
+}
+
+output "metric_name" {
+  description = "The CloudWatch metric name from the metric transformation."
+  value       = aws_cloudwatch_log_metric_filter.metric_filter.metric_transformation[0].name
+}
+
+output "metric_namespace" {
+  description = "The CloudWatch metric namespace from the metric transformation."
+  value       = aws_cloudwatch_log_metric_filter.metric_filter.metric_transformation[0].namespace
+}
+
+output "metric_value" {
+  description = "The value emitted by the metric transformation."
+  value       = aws_cloudwatch_log_metric_filter.metric_filter.metric_transformation[0].value
 }

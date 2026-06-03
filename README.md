@@ -1,41 +1,19 @@
-# TF Module Template
+# TF AWS Module Primitive - CloudWatch Log Metric Filter
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![License: CC BY-NC-ND 4.0](https://img.shields.io/badge/License-CC_BY--NC--ND_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-nd/4.0/)
 
 ## Overview
 
-This repository contains an example Terraform module that is designed to be transformed into another module.
+This Terraform module creates an [AWS CloudWatch log metric filter](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_metric_filter) that publishes custom metrics from log events.
 
-```mermaid
-flowchart RL
-    template -->|Pulls latest changes| skeleton
-    primitives -->|Pulls latest changes| skeleton
-    template --->|Used in producing module repositories| modules
-    modules -->|Produces| primitives
+## Usage
 
-    youarehere["<h3>You Are Here</h3>"]
-    youarehere ==> template
+See [examples/complete](examples/complete) for a full working example.
 
-    template["<strong><a href="https://github.com/launchbynttdata/launch-terraform-template">launch-terraform-template</a></strong><br/><br/>Implements launch-terraform-skeleton, provides a starting point for expected files that make up a Launch Terraform primitive. This repository is used as a template source when other repositories are created."]
+## Module Development
 
-    primitives["<strong><a href="https://github.com/orgs/launchbynttdata/repositories?q=module_primitive">Terraform Primitives</a></strong><br/><br/>Launch's Terraform modules, plus their tests, one per repository. These modules regularly look for updates in launch-terraform-skeleton and autoupdate themselves where possible."]
-
-    modules["<strong><a href="https://github.com/launchbynttdata/launch-terraform-modules">launch-terraform-modules</a></strong><br/><br/>Terragrunt repository defining all of our Terraform primitive modules. Our existing modules will be imported here, our new modules will be configured here going forward."]
-
-    skeleton["<strong><a href="https://github.com/launchbynttdata/launch-terraform-skeleton">launch-terraform-skeleton</a></strong><br><br/>Common workflows and configurations shared by<br/>Terraform modules. Updates to this repository are<br/>consumed by the repositories that implement it<br/>on a regular schedule."]
-```
-
-## How to Use This Repo
-
-This repo is intended to be used as a template for any new TF module.
-
-> [!CAUTION]
-> Your changes only belong in this repo if they modify the default module, examples, tests, or documentation used for Terraform Primitive templating purposes. If you need to make changes to the shared configuration files and workflows, see the [launch-terraform-skeleton](https://github.com/launchbynttdata/launch-terraform-skeleton) repository.
->
-> If you need to create a new Terraform module, see the launch-terraform-modules](https://github.com/launchbynttdata/launch-terraform-modules) repository.
-
-## Pre-Requisites
+### Pre-Requisites
 
 The following commands should be available on your system:
 
@@ -45,90 +23,57 @@ The following commands should be available on your system:
 
 Additionally, your `git` user and email must be configured. Run the `make configure` command from the root of the repository to ensure that you meet these requirements.
 
-### Templating
+### Pre-Commit hooks
 
-#### GitHub Templating
+The [.pre-commit-config.yaml](.pre-commit-config.yaml) file defines `pre-commit` hooks for Terraform formatting, validation, documentation generation, and detect-secrets. Hooks are installed when you run `make configure`. Go linting runs via `make lint` in local development and CI, not via pre-commit.
 
-This repository is used as a GitHub template by the [launch-terraform-modules](https://github.com/launchbynttdata/launch-terraform-modules) repository. If you are a Launch Engineer who needs to create a new Terraform module, you should start there.
+### Terratest examples
 
-#### Manual Templating
+Post-deploy tests in `tests/post_deploy_functional/` and `tests/post_deploy_functional_readonly/` target `examples/complete` via an explicit folder constant in each `main_test.go`. Adding another example (for example `examples/minimal`) requires a new test entry point or updating that constant; it is not picked up automatically.
 
-This applies to systems like Azure DevOps and CodeCommit.
+### Local Validation
 
-We need to clone the repo and start a fresh git history to get rid of the `launch-terraform-template` history. Below is a loose explanation of how to do this.
+You should validate the changes you make to any module locally, prior to pushing your changes in a branch to GitHub.
 
-``` shell
-git clone <this repo's URL> tf-<whatever it is you're building>
-cd tf-<whatever it is you're building>
-rm -rf .git
-git init -b main
+1. Ensure that you have run `make configure` successfully.
+2. Ensure you are signed into the appropriate cloud provider (e.g. AWS) for the module under test in your current console session.
+3. Run the Terraform and Golang linters:
+
+```
+make lint
 ```
 
-#### Remove Educational Material
+4. Once linters pass, run integration tests (apply, test, destroy):
 
-We need to clear out the example code (different from the boilerplate code). We want to save the repo structure; we don't need the contents. There are `examples`, and `tests` that apply to the boilerplate that we're not going to need as developers of new modules.
-
-Note: Before you clear these things out, it's useful to actually understand what they are and why they're there. We'll be building our own as we go forward, so we need to know what it is we're removing. If this isn't your first module, it's safe to fly through this. If this is your first (or your first several, even), take the time to read the code before you remove it.
-
-```shell
-cd path/to/this/repo
-rm -rf examples/*
-rm -rf README.md
-mv TEMPLATED_README.md README.md
+```
+make test
 ```
 
-### Repo Setup
+The pre-commit validations, as well as the `make lint` and `make test` targets, are performed in CI. Running them locally before opening a PR helps ensure a smooth review.
 
-#### Module Configuration
+### Review & Merge Process
 
-- You'll need to update [`versions.tf`](./versions.tf) based on your provider needs.
+Open a Pull Request to the default (`main`) branch. The PR title must follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/#specification) format to merge and to drive semantic versioning.
 
-## Explanation of the Template
+Ensure CI workflows pass, address review feedback, and obtain approvals required by `CODEOWNERS`.
 
-### Resources and Providers
+### Automatic Updates
 
-In this example module we generate text resources with the `random` provider in a similar manner to our Terraform Primitive Modules, with a single resource in the root module and at least one example module instantiating that root module. In reality, the provider tends to be a cloud provider (our ecosystem has strong support for `aws` and `azure*` providers).
-
-### Module Guidelines
-
-- Each repository should have a default module in its root
-  - Should have default values and be instantiable with minimal to no inputs
-  - We can think of these default values as the "default example"
-- A `Makefile` provides tasks for terraform module development
-  - For clearing cached components, it provides a `make clean` command
-  - Linter config and other shared files are defined in the [launch-terraform-skeleton](https://github.com/launchbynttdata/launch-terraform-skeleton) repository. This template and the modules created from it will automatically check for updates of the skeleton.
-- An `examples` folder contains example uses of the default and nested modules
-  - There should be at least one example for each nested module
-  - For modules that are compatible with more than one major version of a provider, an example using the latest minor/patch release of every supported major version must be included.
-- A `tests` folder contains Go functional tests
-  - Make pre-deploy tests that validate terraform plan json where applicable
-  - Make post-deploy tests that validate the deployment where applicable
-- Provider should be configured by the consumer of this module, not the module itself
-  - Modules only define what providers/versions are required
-  - provider.tf is generated on the fly by tests/examples when needed
-
-### Go Functional Tests
-
-- Modules are how Go manages dependencies
-- To initiate a new module, run the command: `go mod init [repo_url]`
-  - It is recommended to use the absolute repository url (e.g. github.com/launchbynttdata/launch-terraform-template)
-- Relative path is highly discouraged in Go, use absolute path to import a package
-  - (e.g. `github.com/launchbynttdata/launch-terraform-template/[path_to_file]`)
-- To update paths or versions, run the command: `go get -t ./...`; Go will update the dependencies accordingly
-
-### Workflows
-
-This template includes workflows to check both an AWS and an Azure Terraform module using our launch-workflows repository's reusable workflows. The workflow will automatically select between the correct provider authentication method based on the name of the downstream repository.
-
-The `launchbynttdata` organization has the appropriate secrets and variables set for these workflows, but if you intend to use them outside of the `launchbynttdata` organization, you may need to configure secrets and variables for your use case. See the [documentation in launch-workflows](https://github.com/launchbynttdata/launch-workflows/tree/main/docs) for more details specific to your desired workflow.
+Shared configuration and workflow files are largely managed through [launch-terraform-skeleton](https://github.com/launchbynttdata/launch-terraform-skeleton). Avoid one-off edits to copied skeleton files in this repository unless necessary (for example `.gitignore` entries for generated artifacts). Use `copier check-update` / `copier update` when refreshing from the skeleton.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
 | Name | Version |
 |------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | ~> 1.0 |
-| <a name="requirement_random"></a> [random](#requirement\_random) | ~> 3.6 |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | ~> 1.10 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.100, < 7.0 |
+
+## Providers
+
+| Name | Version |
+|------|---------|
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.47.0 |
 
 ## Modules
 
@@ -138,19 +83,26 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [random_string.string](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string) | resource |
+| [aws_cloudwatch_log_metric_filter.metric_filter](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_metric_filter) | resource |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_length"></a> [length](#input\_length) | Length of the random string to generate. | `number` | `24` | no |
-| <a name="input_number"></a> [number](#input\_number) | Whether the random string should include numbers. Defaults to true. | `bool` | `true` | no |
-| <a name="input_special"></a> [special](#input\_special) | Whether the random string should include special characters. Defaults to false. | `bool` | `false` | no |
+| <a name="input_name"></a> [name](#input\_name) | Name of the CloudWatch log metric filter. Must be unique within the log group. | `string` | n/a | yes |
+| <a name="input_pattern"></a> [pattern](#input\_pattern) | Filter pattern for extracting metric data from log events. See CloudWatch Logs filter and pattern syntax. | `string` | n/a | yes |
+| <a name="input_log_group_name"></a> [log\_group\_name](#input\_log\_group\_name) | Name of the CloudWatch log group to associate with the metric filter. | `string` | n/a | yes |
+| <a name="input_metric_transformation"></a> [metric\_transformation](#input\_metric\_transformation) | name = CloudWatch metric name created from the filter<br/>namespace = CloudWatch metric namespace<br/>value = Value to emit (default "1")<br/>default\_value = Value when no match (optional)<br/>unit = Standard unit for the metric (optional)<br/>dimensions = Map of dimension names to log field names (optional) | <pre>object({<br/>    name          = string<br/>    namespace     = string<br/>    value         = optional(string, "1")<br/>    default_value = optional(string)<br/>    unit          = optional(string)<br/>    dimensions    = optional(map(string))<br/>  })</pre> | n/a | yes |
 
 ## Outputs
 
 | Name | Description |
 |------|-------------|
-| <a name="output_string"></a> [string](#output\_string) | The random string generated from the configured inputs. |
+| <a name="output_id"></a> [id](#output\_id) | The ID of the metric filter (same as the name). |
+| <a name="output_name"></a> [name](#output\_name) | The name of the metric filter. |
+| <a name="output_log_group_name"></a> [log\_group\_name](#output\_log\_group\_name) | The name of the CloudWatch log group. |
+| <a name="output_pattern"></a> [pattern](#output\_pattern) | The filter pattern. |
+| <a name="output_metric_name"></a> [metric\_name](#output\_metric\_name) | The CloudWatch metric name from the metric transformation. |
+| <a name="output_metric_namespace"></a> [metric\_namespace](#output\_metric\_namespace) | The CloudWatch metric namespace from the metric transformation. |
+| <a name="output_metric_value"></a> [metric\_value](#output\_metric\_value) | The value emitted by the metric transformation. |
 <!-- END_TF_DOCS -->
