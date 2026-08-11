@@ -85,10 +85,10 @@ func waitForMetricFilter(t *testing.T, client *cloudwatchlogs.Client, logGroupNa
 
 func assertMetricFilterConfig(t *testing.T, matched *cwltypes.MetricFilter, opts *terraform.Options, filterName string) {
 	t.Helper()
-	expectedPattern := terraform.Output(t, opts, "pattern")
-	expectedMetricName := terraform.Output(t, opts, "metric_name")
-	expectedNamespace := terraform.Output(t, opts, "metric_namespace")
-	expectedMetricValue := terraform.Output(t, opts, "metric_value")
+	expectedPattern := terraform.OutputContext(t, context.Background(), opts, "pattern")
+	expectedMetricName := terraform.OutputContext(t, context.Background(), opts, "metric_name")
+	expectedNamespace := terraform.OutputContext(t, context.Background(), opts, "metric_namespace")
+	expectedMetricValue := terraform.OutputContext(t, context.Background(), opts, "metric_value")
 
 	require.NotNil(t, matched, "metric filter should be found by name")
 	require.Equal(t, filterName, aws.ToString(matched.FilterName), "filter name should match")
@@ -102,12 +102,12 @@ func assertMetricFilterConfig(t *testing.T, matched *cwltypes.MetricFilter, opts
 func TestComposableComplete(t *testing.T, ctx types.TestContext) {
 	t.Run("VerifyTerraformOutputs", func(t *testing.T) {
 		opts := ctx.TerratestTerraformOptions()
-		id := terraform.Output(t, opts, "id")
-		name := terraform.Output(t, opts, "name")
-		pattern := terraform.Output(t, opts, "pattern")
-		metricName := terraform.Output(t, opts, "metric_name")
-		metricNamespace := terraform.Output(t, opts, "metric_namespace")
-		metricValue := terraform.Output(t, opts, "metric_value")
+		id := terraform.OutputContext(t, context.Background(), opts, "id")
+		name := terraform.OutputContext(t, context.Background(), opts, "name")
+		pattern := terraform.OutputContext(t, context.Background(), opts, "pattern")
+		metricName := terraform.OutputContext(t, context.Background(), opts, "metric_name")
+		metricNamespace := terraform.OutputContext(t, context.Background(), opts, "metric_namespace")
+		metricValue := terraform.OutputContext(t, context.Background(), opts, "metric_value")
 
 		assert.Equal(t, name, id, "id should equal name for metric filter")
 		assert.NotEmpty(t, pattern, "pattern should be set")
@@ -118,9 +118,9 @@ func TestComposableComplete(t *testing.T, ctx types.TestContext) {
 
 	t.Run("VerifyLogGroupKMSEncryption", func(t *testing.T) {
 		opts := ctx.TerratestTerraformOptions()
-		logGroupName := terraform.Output(t, opts, "log_group_name")
-		kmsKeyARN := terraform.Output(t, opts, "kms_key_arn")
-		region := terraform.Output(t, opts, "region")
+		logGroupName := terraform.OutputContext(t, context.Background(), opts, "log_group_name")
+		kmsKeyARN := terraform.OutputContext(t, context.Background(), opts, "kms_key_arn")
+		region := terraform.OutputContext(t, context.Background(), opts, "region")
 
 		client := getCloudWatchLogsClient(t, region)
 		assertLogGroupKMSEncryption(t, client, logGroupName, kmsKeyARN)
@@ -128,9 +128,9 @@ func TestComposableComplete(t *testing.T, ctx types.TestContext) {
 
 	t.Run("VerifyMetricFilterViaAPI", func(t *testing.T) {
 		opts := ctx.TerratestTerraformOptions()
-		filterName := terraform.Output(t, opts, "name")
-		logGroupName := terraform.Output(t, opts, "log_group_name")
-		region := terraform.Output(t, opts, "region")
+		filterName := terraform.OutputContext(t, context.Background(), opts, "name")
+		logGroupName := terraform.OutputContext(t, context.Background(), opts, "log_group_name")
+		region := terraform.OutputContext(t, context.Background(), opts, "region")
 
 		client := getCloudWatchLogsClient(t, region)
 		matched, err := waitForMetricFilter(t, client, logGroupName, filterName)
@@ -140,11 +140,11 @@ func TestComposableComplete(t *testing.T, ctx types.TestContext) {
 
 	t.Run("PutLogEventsAndVerifyMetric", func(t *testing.T) {
 		opts := ctx.TerratestTerraformOptions()
-		logGroupName := terraform.Output(t, opts, "log_group_name")
-		region := terraform.Output(t, opts, "region")
-		metricName := terraform.Output(t, opts, "metric_name")
-		metricNamespace := terraform.Output(t, opts, "metric_namespace")
-		pattern := terraform.Output(t, opts, "pattern")
+		logGroupName := terraform.OutputContext(t, context.Background(), opts, "log_group_name")
+		region := terraform.OutputContext(t, context.Background(), opts, "region")
+		metricName := terraform.OutputContext(t, context.Background(), opts, "metric_name")
+		metricNamespace := terraform.OutputContext(t, context.Background(), opts, "metric_namespace")
+		pattern := terraform.OutputContext(t, context.Background(), opts, "pattern")
 
 		logsClient := getCloudWatchLogsClient(t, region)
 		cwClient := getCloudWatchClient(t, region)
@@ -221,17 +221,17 @@ func TestComposableComplete(t *testing.T, ctx types.TestContext) {
 func TestComposableCompleteReadOnly(t *testing.T, ctx types.TestContext) {
 	t.Run("VerifyTerraformOutputs", func(t *testing.T) {
 		opts := ctx.TerratestTerraformOptions()
-		id := terraform.Output(t, opts, "id")
-		name := terraform.Output(t, opts, "name")
+		id := terraform.OutputContext(t, context.Background(), opts, "id")
+		name := terraform.OutputContext(t, context.Background(), opts, "name")
 
 		assert.Equal(t, name, id, "id should equal name for metric filter")
 	})
 
 	t.Run("VerifyLogGroupKMSEncryption", func(t *testing.T) {
 		opts := ctx.TerratestTerraformOptions()
-		logGroupName := terraform.Output(t, opts, "log_group_name")
-		kmsKeyARN := terraform.Output(t, opts, "kms_key_arn")
-		region := terraform.Output(t, opts, "region")
+		logGroupName := terraform.OutputContext(t, context.Background(), opts, "log_group_name")
+		kmsKeyARN := terraform.OutputContext(t, context.Background(), opts, "kms_key_arn")
+		region := terraform.OutputContext(t, context.Background(), opts, "region")
 
 		client := getCloudWatchLogsClient(t, region)
 		assertLogGroupKMSEncryption(t, client, logGroupName, kmsKeyARN)
@@ -239,9 +239,9 @@ func TestComposableCompleteReadOnly(t *testing.T, ctx types.TestContext) {
 
 	t.Run("VerifyMetricFilterViaAPI", func(t *testing.T) {
 		opts := ctx.TerratestTerraformOptions()
-		filterName := terraform.Output(t, opts, "name")
-		logGroupName := terraform.Output(t, opts, "log_group_name")
-		region := terraform.Output(t, opts, "region")
+		filterName := terraform.OutputContext(t, context.Background(), opts, "name")
+		logGroupName := terraform.OutputContext(t, context.Background(), opts, "log_group_name")
+		region := terraform.OutputContext(t, context.Background(), opts, "region")
 
 		client := getCloudWatchLogsClient(t, region)
 		matched, err := waitForMetricFilter(t, client, logGroupName, filterName)
