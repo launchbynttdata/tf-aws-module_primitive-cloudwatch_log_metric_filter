@@ -32,8 +32,8 @@ github.com/aws/aws-sdk-go-v2/service/acm v1.38.2 h1:ozcwethaFOi2ST9h6MKGq1GAIHP6
 github.com/aws/aws-sdk-go-v2/service/acm v1.38.2/go.mod h1:HNtDOv4XmqExPxNIBp171KKc5ZoUJwHH9ZhlCcZmdt0=
 github.com/aws/aws-sdk-go-v2/service/autoscaling v1.66.1 h1:kGlbhb5GMfkP/bcqcbt3oDi50kwDTpRmNzYUY9LqbLk=
 github.com/aws/aws-sdk-go-v2/service/autoscaling v1.66.1/go.mod h1:z45kurrOonQepd3SN5LIgropAn1NGHwBn1yOMF+QVFU=
-github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.66.6 h1:Jm8m4DUoen24KEXIacAbwHbOOssjjJd/ic8BRv/VvCg=
-github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.66.6/go.mod h1:JOTUlPn80fWAQNBxEk8xbNmY2xuGJdogY2VOxHW7LK8=
+github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.67.0 h1:fv3n4Rb++3wmCgetWT78ncVL56pZeOMlamxkPVSEMW8=
+github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.67.0/go.mod h1:JOTUlPn80fWAQNBxEk8xbNmY2xuGJdogY2VOxHW7LK8=
 github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.82.3 h1:NdGQPpwrxGn+l8LIaRH67jMItmjfHyIi4tszQn15Itw=
 github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.82.3/go.mod h1:tVtmZibzI3RI5isJfU1aM9jIQART8pF/IXCflKAuUn0=
 github.com/aws/aws-sdk-go-v2/service/dynamodb v1.57.2 h1:J2ibOhlMLx1o6QwDFsHHfbQjaZ6t5LXodiLNuK6jbZA=
