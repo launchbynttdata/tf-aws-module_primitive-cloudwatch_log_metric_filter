@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.47.1
 	github.com/aws/aws-sdk-go-v2/config v1.33.6
 	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.73.0
-	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.88.1
+	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.89.0
 	github.com/gruntwork-io/terratest v1.0.1
 	github.com/launchbynttdata/lcaf-component-terratest v1.0.4
 	github.com/stretchr/testify v1.12.1
