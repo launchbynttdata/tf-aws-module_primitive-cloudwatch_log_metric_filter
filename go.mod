@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/aws/aws-sdk-go-v2 v1.47.3
 	github.com/aws/aws-sdk-go-v2/config v1.33.9
-	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.74.0
+	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.75.0
 	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.90.0
 	github.com/gruntwork-io/terratest v1.0.1
 	github.com/launchbynttdata/lcaf-component-terratest v1.0.4
